@@ -15,106 +15,43 @@ jobs:
         include:
           - environment: hyp3
             domain: hyp3-api.asf.alaska.edu
-            template_bucket: cf-templates-aubvn3i9olmk-us-west-2
-            image_tag: latest
-            product_lifetime_in_days: 14
-            quota: 250
             deploy_ref: refs/heads/main
             job_files: job_spec/AUTORIFT.yml job_spec/INSAR_GAMMA.yml job_spec/RTC_GAMMA.yml
-            default_max_vcpus: 600
-            expanded_max_vcpus: 1600
-            required_surplus: 1000
-            earthdata_cloud: false
-            ami_id: /aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id
 
           - environment: hyp3-test
             domain: hyp3-test-api.asf.alaska.edu
-            template_bucket: cf-templates-aubvn3i9olmk-us-west-2
-            image_tag: test
-            product_lifetime_in_days: 14
-            quota: 250
-            deploy_ref: refs/heads/develop
             job_files: >-
               job_spec/AUTORIFT.yml 
               job_spec/INSAR_GAMMA.yml 
               job_spec/RTC_GAMMA.yml 
               job_spec/INSAR_ISCE.yml   
               job_spec/WATER_MAP.yml
-            default_max_vcpus: 600
-            expanded_max_vcpus: 1600
-            required_surplus: 1000
-            earthdata_cloud: false
-            ami_id: /aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id
+            deploy_ref: refs/heads/develop
 
           - environment: hyp3-edc-uat
             domain: ''
-            template_bucket: cf-templates-118ylv0o6jp2n-us-west-2
-            image_tag: test
-            product_lifetime_in_days: 14
-            quota: 250
             deploy_ref: refs/heads/develop
             job_files: job_spec/AUTORIFT.yml job_spec/INSAR_GAMMA.yml job_spec/RTC_GAMMA.yml
-            default_max_vcpus: 60
-            expanded_max_vcpus: 60
-            required_surplus: 0
-            earthdata_cloud: true
-            ami_id: image_id_ecs_amz2
 
           - environment: hyp3-autorift
-            domain: hyp3-autorift.asf.alaska.edu
-            template_bucket: cf-templates-igavixdzdy7k-us-west-2
-            image_tag: latest
-            product_lifetime_in_days: 180
-            quota: 0
+            domain: hyp3-autorift.asf.alaska.
             deploy_ref: refs/heads/main
             job_files: job_spec/AUTORIFT_ITS_LIVE.yml
-            default_max_vcpus: 1600
-            expanded_max_vcpus: 1600
-            required_surplus: 0
-            earthdata_cloud: false
-            ami_id: /aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id
 
           - environment: hyp3-autorift-eu
             domain: hyp3-autorift-eu.asf.alaska.edu
-            template_bucket: cf-templates-autorift-eu-central-1
-            image_tag: latest
-            product_lifetime_in_days: 180
-            quota: 0
             deploy_ref: refs/heads/main
             job_files: job_spec/AUTORIFT_ITS_LIVE_EU.yml
-            default_max_vcpus: 1600
-            expanded_max_vcpus: 1600
-            required_surplus: 0
-            earthdata_cloud: false
-            ami_id: /aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id
 
           - environment: hyp3-isce
             domain: hyp3-isce.asf.alaska.edu
-            template_bucket: cf-templates-t790khv4btdq-us-west-2
-            image_tag: latest
-            product_lifetime_in_days: 30
-            quota: 0
             deploy_ref: refs/heads/main
             job_files: job_spec/INSAR_ISCE.yml job_spec/INSAR_ISCE_TEST.yml
-            default_max_vcpus: 1600
-            expanded_max_vcpus: 1600
-            required_surplus: 0
-            earthdata_cloud: false
-            ami_id: /aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id
 
           - environment: hyp3-tibet
             domain: hyp3-tibet.asf.alaska.edu
-            template_bucket: cf-templates-ejaipnrxq7xg-us-west-2
-            image_tag: latest
-            product_lifetime_in_days: 30
-            quota: 0
             deploy_ref: refs/heads/main
             job_files: job_spec/INSAR_ISCE.yml job_spec/INSAR_ISCE_TEST.yml
-            default_max_vcpus: 1600
-            expanded_max_vcpus: 1600
-            required_surplus: 0
-            earthdata_cloud: false
-            ami_id: /aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id
 
     environment:
       name: ${{ matrix.environment }}
@@ -134,31 +71,17 @@ jobs:
         with:
           python-version: 3.8
 
-      - uses: ./.github/actions/deploy-hyp3
-        if: github.ref == matrix.deploy_ref
-        with:
-          TEMPLATE_BUCKET:  ${{ matrix.template_bucket }}
-          STACK_NAME: ${{ matrix.environment }}
-          DOMAIN_NAME: ${{ matrix.domain }}
-          CERTIFICATE_ARN:  ${{ secrets.CERTIFICATE_ARN }}
-          IMAGE_TAG: ${{ matrix.image_tag }}
-          PRODUCT_LIFETIME: ${{ matrix.product_lifetime_in_days }}
-          VPC_ID: ${{ secrets.VPC_ID }}
-          SUBNET_IDS: ${{ secrets.SUBNET_IDS }}
-          EDL_USERNAME: ${{ secrets.EDL_USERNAME }}
-          EDL_PASSWORD: ${{ secrets.EDL_PASSWORD }}
-          CLOUDFORMATION_ROLE_ARN: ${{ secrets.CLOUDFORMATION_ROLE_ARN }}
-          MONTHLY_JOB_QUOTA_PER_USER: ${{ matrix.quota }}
-          JOB_FILES: ${{ matrix.job_files }}
-          BANNED_CIDR_BLOCKS: ${{ secrets.BANNED_CIDR_BLOCKS }}
-          DEFAULT_MAX_VCPUS: ${{ matrix.default_max_vcpus }}
-          EXPANDED_MAX_VCPUS: ${{ matrix.expanded_max_vcpus }}
-          MONTHLY_COMPUTE_BUDGET: ${{ secrets.MONTHLY_COMPUTE_BUDGET }}
-          REQUIRED_SURPLUS: ${{ matrix.required_surplus }}
-          PERMISSIONS_BOUNDARY_ARN: ${{ secrets.PERMISSIONS_BOUNDARY_ARN }}
-          EARTHDATA_CLOUD: ${{ matrix.earthdata_cloud }}
-          AMI_ID: ${{ matrix.ami_id }}
+      - name: render and install
+        run: |
+          make install
+          make files='${{ matrix.job_files }}' render
 
+      - uses: youyo/aws-cdk-github-actions@v2
+        with:
+          cdk_subcommand: 'deploy'
+          cdk_stack: ${{ matrix.environment }}
+          cdk_args: "--require-approval never --parameters Domain='${{ matrix.domain }' ParametersArn='${{ secrets.PARAMETERS_ARN }'"
+          actions_comment: false
   tag:
     runs-on: ubuntu-latest
     needs: deploy
